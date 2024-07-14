@@ -12,19 +12,10 @@ jobs:
     - name: Add msbuild to PATH
       uses: microsoft/setup-msbuild@v1
     - run: |
-        cd .github
-        cp remove-file-location.patch /c/vcpkg
-        cp update-detours.patch /c/vcpkg
-        cd /c/vcpkg
-        git pull
-        git apply remove-file-location.patch
-        git apply update-detours.patch
-      shell: bash
-    - run: |
-        vcpkg install ryml[core] detours wil --triplet=arm64-windows-static
-        vcpkg install ryml[core] detours wil --triplet=arm-windows-static
-        vcpkg install ryml[core] detours wil --triplet=x64-windows-static
-        vcpkg install ryml[core] detours wil --triplet=x86-windows-static
+        vcpkg install --triplet=arm64-windows-static
+        vcpkg install --triplet=arm-windows-static
+        vcpkg install --triplet=x64-windows-static
+        vcpkg install --triplet=x86-windows-static
         vcpkg integrate install
       shell: cmd
     - run: |
