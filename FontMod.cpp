@@ -234,6 +234,8 @@ HFONT WINAPI MyCreateFontIndirectExW(const ENUMLOGFONTEXDVW* lpelf)
 
 HGDIOBJ WINAPI MyGetStockObject(int i)
 {
+	FormatToFile(logFile.get(), "[GetStockObject] Type = {}\n", i);
+
 	switch (i)
 	{
 	case OEM_FIXED_FONT:
