@@ -1,0 +1,14 @@
+{
+  "dependencies": [
+    "ryml",
+    "detours",
+    "wil"
+  ],
+  "builtin-baseline": "3426db05b996481ca31e95fff3734cf23e0f51bc",
+  "overrides": [
+    { "name": "ryml",  "version": "2021-07-24#1" },
+    { "name": "detours",  "version": "4.0.1#8" },
+    { "name": "wil",  "version": "2021-08-03#2" },
+    { "name": "c4core",  "version": "2021-07-18#1" }
+  ]
+}

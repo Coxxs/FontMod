@@ -233,7 +233,7 @@ template <class... Types>
 void FormatToFile(HANDLE hFile, const std::string_view fmt, const Types&... args)
 {
 	format_to_file_buffer buf(hFile);
-	std::format_to(std::back_insert_iterator(buf), fmt, args...);
+	std::vformat_to(std::back_inserter(buf), fmt, std::make_format_args(args...));
 }
 
 inline void ReadFileCheckSize(HANDLE hFile, void* buffer, DWORD size)
