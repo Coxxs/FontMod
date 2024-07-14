@@ -41,6 +41,8 @@ fonts:
   Gulim: # Korean fallback font
     replace: 맑은 고딕
     <<: *style
+  FontFallback: # Fallback font for missing fonts
+    replace: Microsoft YaHei
 
 #fixGSOFont: true # true is to use system UI font
 #fixGSOFont: *zh-cn-font # Or replace with user defined font

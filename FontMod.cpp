@@ -148,6 +148,24 @@ void OverrideLogFont(const FontInfo& info, LOGFONTW& lf)
 		lf.lfPitchAndFamily = info.pitchAndFamily;
 }
 
+bool IsFontExist(const std::wstring& fontName) {
+	LOGFONT logfont = { 0 };
+	logfont.lfCharSet = DEFAULT_CHARSET;
+	wcscpy_s(logfont.lfFaceName, fontName.c_str());
+
+	HDC hdc = GetDC(NULL);
+	bool fontExists = false;
+
+	EnumFontFamiliesEx(hdc, &logfont, [](const LOGFONT* /* lpelfe */, const TEXTMETRIC* /* lpntme */, DWORD /* FontType */, LPARAM lParam) -> int {
+		bool* fontExists = reinterpret_cast<bool*>(lParam);
+		*fontExists = true;
+		return 0; // Stop enumeration
+		}, reinterpret_cast<LPARAM>(&fontExists), 0);
+
+	ReleaseDC(NULL, hdc);
+	return fontExists;
+}
+
 HFONT WINAPI MyCreateFontIndirectExW(const ENUMLOGFONTEXDVW* lpelf)
 {
 	auto lplf = &lpelf->elfEnumLogfontEx.elfLogFont;
@@ -158,14 +176,14 @@ HFONT WINAPI MyCreateFontIndirectExW(const ENUMLOGFONTEXDVW* lpelf)
 		if (Utf16ToUtf8(lplf->lfFaceName, name))
 		{
 			FormatToFile(logFile.get(),
-				"[CreateFont] name = \"{}\", height = {}, "
+				"[CreateFont] name = \"{}\", Exist = {}, height = {}, "
 				"width = {}, escapement = {}, "
 				"orientation = {}, weight = {}, "
 				"italic = {}, underline = {}, "
 				"strikeout = {}, charset = {}, "
 				"outprecision = {}, clipprecision = {}, "
 				"quality = {}, pitchandfamily = {}\n",
-				name, lplf->lfHeight,
+				name, IsFontExist(lplf->lfFaceName), lplf->lfHeight,
 				lplf->lfWidth, lplf->lfEscapement,
 				lplf->lfOrientation, lplf->lfWeight,
 				!!lplf->lfItalic, !!lplf->lfUnderline,
@@ -176,6 +194,7 @@ HFONT WINAPI MyCreateFontIndirectExW(const ENUMLOGFONTEXDVW* lpelf)
 	}
 
 	ENUMLOGFONTEXDVW elf;
+	const WCHAR* fallbackFontName = L"FontFallback";
 
 	auto it = fontsMap.find(lplf->lfFaceName);
 	if (it != fontsMap.end())
@@ -186,6 +205,17 @@ HFONT WINAPI MyCreateFontIndirectExW(const ENUMLOGFONTEXDVW* lpelf)
 		OverrideLogFont(it->second, lf);
 
 		lpelf = &elf;
+	} else if (fontsMap.count(fallbackFontName) && !IsFontExist(lplf->lfFaceName)) {
+		auto it2 = fontsMap.find(fallbackFontName);
+		if (it2 != fontsMap.end())
+		{
+			elf = *lpelf;
+			LOGFONTW& lf = elf.elfEnumLogfontEx.elfLogFont;
+
+			OverrideLogFont(it2->second, lf);
+
+			lpelf = &elf;
+		}
 	}
 	return addrCreateFontIndirectExW(lpelf);
 }
