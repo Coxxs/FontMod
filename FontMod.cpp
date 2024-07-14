@@ -195,28 +195,40 @@ HFONT WINAPI MyCreateFontIndirectExW(const ENUMLOGFONTEXDVW* lpelf)
 
 	ENUMLOGFONTEXDVW elf;
 	const WCHAR* fallbackFontName = L"FontFallback";
+	const WCHAR* allFontName = L"FontAll";
+	FontInfo* newFontInfo = NULL;
 
-	auto it = fontsMap.find(lplf->lfFaceName);
-	if (it != fontsMap.end())
+	if (fontsMap.count(allFontName)) {
+		auto it = fontsMap.find(allFontName);
+		if (it != fontsMap.end())
+		{
+			newFontInfo = &it->second;
+		}
+	} else {
+		auto it = fontsMap.find(lplf->lfFaceName);
+		if (it != fontsMap.end())
+		{
+			newFontInfo = &it->second;
+		}
+		else if (fontsMap.count(fallbackFontName) && !IsFontExist(lplf->lfFaceName)) {
+			it = fontsMap.find(fallbackFontName);
+			if (it != fontsMap.end())
+			{
+				newFontInfo = &it->second;
+			}
+		}
+	}
+
+	if (newFontInfo)
 	{
 		elf = *lpelf;
 		LOGFONTW& lf = elf.elfEnumLogfontEx.elfLogFont;
 
-		OverrideLogFont(it->second, lf);
+		OverrideLogFont(*newFontInfo, lf);
 
 		lpelf = &elf;
-	} else if (fontsMap.count(fallbackFontName) && !IsFontExist(lplf->lfFaceName)) {
-		auto it2 = fontsMap.find(fallbackFontName);
-		if (it2 != fontsMap.end())
-		{
-			elf = *lpelf;
-			LOGFONTW& lf = elf.elfEnumLogfontEx.elfLogFont;
-
-			OverrideLogFont(it2->second, lf);
-
-			lpelf = &elf;
-		}
 	}
+
 	return addrCreateFontIndirectExW(lpelf);
 }
 
