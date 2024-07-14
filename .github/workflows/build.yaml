@@ -12,7 +12,6 @@ jobs:
       uses: microsoft/setup-msbuild@v1
     - run: |
         vcpkg install --triplet=arm64-windows-static
-        vcpkg install --triplet=arm-windows-static
         vcpkg install --triplet=x64-windows-static
         vcpkg install --triplet=x86-windows-static
         vcpkg integrate install
@@ -24,8 +23,6 @@ jobs:
           msbuild FontMod.sln "-p:Configuration=Release;Platform=x86" }
         Start-Job -Init ([ScriptBlock]::Create("Set-Location '$pwd'")) -Script {
           msbuild FontMod.sln "-p:Configuration=Release;Platform=ARM64" }
-        Start-Job -Init ([ScriptBlock]::Create("Set-Location '$pwd'")) -Script {
-          msbuild FontMod.sln "-p:Configuration=Release;Platform=ARM" }
         Get-Job | Wait-Job | Receive-Job
       shell: powershell
     - uses: actions/upload-artifact@v2
@@ -96,13 +93,4 @@ jobs:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: ARM64/Release/FontModARM64.dll
         asset_name: FontModARM64.dll
-        asset_content_type: application/octet-stream
-    - name: Upload Release Asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ARM/Release/FontModARM.dll
-        asset_name: FontModARM.dll
         asset_content_type: application/octet-stream
