@@ -230,6 +230,7 @@ HGDIOBJ WINAPI MyGetStockObject(int i)
 	case SYSTEM_FONT:
 	case DEVICE_DEFAULT_FONT:
 	case SYSTEM_FIXED_FONT:
+	case DEFAULT_GUI_FONT:
 		return newGSOFont;
 	}
 	return addrGetStockObject(i);
