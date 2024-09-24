@@ -36,27 +36,27 @@ jobs:
         #   msbuild FontMod.sln "-p:Configuration=Release;Platform=ARM64" }
         Get-Job | Wait-Job | Receive-Job
       shell: powershell
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v4
       with:
         name: FontMod64
         path: x64/Release/FontMod64.dll
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v4
       with:
         name: FontMod64
         path: x64/Release/FontMod64.pdb
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v4
       with:
         name: FontMod32
         path: Release/FontMod32.dll
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v4
       with:
         name: FontMod32
         path: Release/FontMod32.pdb
-    # - uses: actions/upload-artifact@v2
+    # - uses: actions/upload-artifact@v4
     #   with:
     #     name: FontModARM64
     #     path: ARM64/Release/FontModARM64.dll
-    # - uses: actions/upload-artifact@v2
+    # - uses: actions/upload-artifact@v4
     #   with:
     #     name: FontModARM64
     #     path: ARM64/Release/FontModARM64.pdb
