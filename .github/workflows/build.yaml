@@ -42,7 +42,7 @@ jobs:
         path: x64/Release/FontMod64.dll
     - uses: actions/upload-artifact@v4
       with:
-        name: FontMod64
+        name: FontMod64Pdb
         path: x64/Release/FontMod64.pdb
     - uses: actions/upload-artifact@v4
       with:
@@ -50,7 +50,7 @@ jobs:
         path: Release/FontMod32.dll
     - uses: actions/upload-artifact@v4
       with:
-        name: FontMod32
+        name: FontMod32Pdb
         path: Release/FontMod32.pdb
     # - uses: actions/upload-artifact@v4
     #   with:
@@ -58,7 +58,7 @@ jobs:
     #     path: ARM64/Release/FontModARM64.dll
     # - uses: actions/upload-artifact@v4
     #   with:
-    #     name: FontModARM64
+    #     name: FontModARM64Pdb
     #     path: ARM64/Release/FontModARM64.pdb
     - name: Create Release
       id: create_release
