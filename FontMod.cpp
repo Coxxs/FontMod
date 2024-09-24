@@ -44,13 +44,18 @@ struct FontInfo
 		OutPrecision = 1 << 8,
 		ClipPrecision = 1 << 9,
 		Quality = 1 << 10,
-		PitchAndFamily = 1 << 11
+		PitchAndFamily = 1 << 11,
+		HeightOffset = 1 << 12,
+		WidthOffset = 1 << 13
+
 	};
 
 	std::wstring name;
 	OverrideFlags overrideFlags = OverrideFlags::None;
 	long height;
 	long width;
+	long heightOffset;
+	long widthOffset;
 	long weight;
 	bool italic;
 	bool underLine;
@@ -131,6 +136,12 @@ void OverrideLogFont(const FontInfo& info, LOGFONTW& lf)
 		lf.lfHeight = info.height;
 	if ((info.overrideFlags & OF::Width) == OF::Width)
 		lf.lfWidth = info.width;
+	if ((info.overrideFlags & OF::Width) == OF::Width)
+		lf.lfWidth = info.width;
+	if (lf.lfHeight != 0 && (info.overrideFlags & OF::HeightOffset) == OF::HeightOffset)
+		lf.lfHeight = lf.lfHeight > 0 ? std::max(1L, lf.lfHeight + info.heightOffset) : std::min(-1L, lf.lfHeight - info.heightOffset);
+	if (lf.lfWidth != 0 && (info.overrideFlags & OF::WidthOffset) == OF::WidthOffset)
+		lf.lfWidth = std::max(1L, lf.lfWidth + info.widthOffset);
 	if ((info.overrideFlags & OF::Weight) == OF::Weight)
 		lf.lfWeight = info.weight;
 	if ((info.overrideFlags & OF::Italic) == OF::Italic)
@@ -392,6 +403,16 @@ FontInfo GetFontInfo(const ryml::NodeRef& map)
 		{
 			i >> info.width;
 			info.overrideFlags |= OF::Width;
+		}
+		else if (i.key() == "sizeOffset")
+		{
+			i >> info.heightOffset;
+			info.overrideFlags |= OF::HeightOffset;
+		}
+		else if (i.key() == "widthOffset")
+		{
+			i >> info.widthOffset;
+			info.overrideFlags |= OF::WidthOffset;
 		}
 		else if (i.key() == "weight")
 		{
