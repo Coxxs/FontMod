@@ -10,6 +10,9 @@ constexpr std::wstring_view CONFIG_FILE = CONFIG_FILE_STR;
 constexpr std::wstring_view LOG_FILE = L"FontMod.log";
 
 auto addrCreateFontIndirectExW = CreateFontIndirectExW;
+#ifdef WIN32
+auto addrCreateFontW = CreateFontW;
+#endif
 auto addrGetStockObject = GetStockObject;
 
 namespace GPFlat = Gdiplus::DllExports;
@@ -231,6 +234,49 @@ HFONT WINAPI MyCreateFontIndirectExW(const ENUMLOGFONTEXDVW* lpelf)
 
 	return addrCreateFontIndirectExW(lpelf);
 }
+
+#ifdef WIN32
+HFONT WINAPI MyCreateFontW(
+	int cHeight,
+	int cWidth,
+	int cEscapement,
+	int cOrientation,
+	int cWeight,
+	DWORD bItalic,
+	DWORD bUnderline,
+	DWORD bStrikeOut,
+	DWORD iCharSet,
+	DWORD iOutPrecision,
+	DWORD iClipPrecision,
+	DWORD iQuality,
+	DWORD iPitchAndFamily,
+	LPCWSTR pszFaceName) {
+	ENUMLOGFONTEXDVW elf{};
+
+	elf.elfEnumLogfontEx.elfLogFont.lfHeight = cHeight;
+	elf.elfEnumLogfontEx.elfLogFont.lfWidth = cWidth;
+	elf.elfEnumLogfontEx.elfLogFont.lfEscapement = cEscapement;
+	elf.elfEnumLogfontEx.elfLogFont.lfOrientation = cOrientation;
+	elf.elfEnumLogfontEx.elfLogFont.lfWeight = cWeight;
+	elf.elfEnumLogfontEx.elfLogFont.lfItalic = (BYTE)bItalic;
+	elf.elfEnumLogfontEx.elfLogFont.lfUnderline = (BYTE)bUnderline;
+	elf.elfEnumLogfontEx.elfLogFont.lfStrikeOut = (BYTE)bStrikeOut;
+	elf.elfEnumLogfontEx.elfLogFont.lfCharSet = (BYTE)iCharSet;
+	elf.elfEnumLogfontEx.elfLogFont.lfOutPrecision = (BYTE)iOutPrecision;
+	elf.elfEnumLogfontEx.elfLogFont.lfClipPrecision = (BYTE)iClipPrecision;
+	elf.elfEnumLogfontEx.elfLogFont.lfQuality = (BYTE)iQuality;
+	elf.elfEnumLogfontEx.elfLogFont.lfPitchAndFamily = (BYTE)iPitchAndFamily;
+	elf.elfEnumLogfontEx.elfFullName[0] = 0;
+	elf.elfEnumLogfontEx.elfStyle[0] = 0;
+	elf.elfEnumLogfontEx.elfScript[0] = 0;
+	elf.elfDesignVector.dvReserved = 0x8007664LL;
+
+	if (pszFaceName) {
+		wcsncpy_s(elf.elfEnumLogfontEx.elfLogFont.lfFaceName, pszFaceName, LF_FACESIZE - 1);
+	}
+	return MyCreateFontIndirectExW(&elf);
+}
+#endif
 
 HGDIOBJ WINAPI MyGetStockObject(int i)
 {
@@ -715,6 +761,9 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, [[maybe_unused]
 			DetourAttach(&(PVOID&)addrGetStockObject, MyGetStockObject);
 		}
 		DetourAttach(&(PVOID&)addrCreateFontIndirectExW, MyCreateFontIndirectExW);
+#ifdef WIN32
+		DetourAttach(&(PVOID&)addrCreateFontW, MyCreateFontW);
+#endif
 
 		if (!gdipFontFamiliesMap.empty() || !gdipFontsMap.empty() || !gdipGFFSansSerif.empty() || !gdipGFFSerif.empty() || !gdipGFFMonospace.empty())
 		{
