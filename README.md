@@ -18,6 +18,8 @@ style: &style
 # Remove '#' to override font style
 #  size: 0
 #  width: 0
+#  sizeOffset: -5
+#  widthOffset: 5
 #  weight: 0
 #  italic: false
 #  underLine: false
