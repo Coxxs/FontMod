@@ -11,6 +11,7 @@ constexpr std::wstring_view LOG_FILE = L"FontMod.log";
 
 auto addrCreateFontIndirectExW = CreateFontIndirectExW;
 #ifdef WIN32
+auto addrCreateFontIndirectW = CreateFontIndirectW;
 auto addrCreateFontW = CreateFontW;
 #endif
 auto addrGetStockObject = GetStockObject;
@@ -46,7 +47,9 @@ struct FontInfo
 		Quality = 1 << 10,
 		PitchAndFamily = 1 << 11,
 		HeightOffset = 1 << 12,
-		WidthOffset = 1 << 13
+		WidthOffset = 1 << 13,
+		HeightScale = 1 << 14,
+		WidthScale = 1 << 15
 
 	};
 
@@ -56,6 +59,8 @@ struct FontInfo
 	long width;
 	long heightOffset;
 	long widthOffset;
+	double heightScale;
+	double widthScale;
 	long weight;
 	bool italic;
 	bool underLine;
@@ -142,6 +147,10 @@ void OverrideLogFont(const FontInfo& info, LOGFONTW& lf)
 		lf.lfHeight = lf.lfHeight > 0 ? std::max(1L, lf.lfHeight + info.heightOffset) : std::min(-1L, lf.lfHeight - info.heightOffset);
 	if (lf.lfWidth != 0 && (info.overrideFlags & OF::WidthOffset) == OF::WidthOffset)
 		lf.lfWidth = std::max(1L, lf.lfWidth + info.widthOffset);
+	if (lf.lfHeight != 0 && (info.overrideFlags & OF::HeightScale) == OF::HeightScale)
+		lf.lfHeight = lround(lf.lfHeight * info.heightScale);
+	if (lf.lfWidth != 0 && (info.overrideFlags & OF::WidthScale) == OF::WidthScale)
+		lf.lfWidth = lround(lf.lfWidth * info.widthScale);
 	if ((info.overrideFlags & OF::Weight) == OF::Weight)
 		lf.lfWeight = info.weight;
 	if ((info.overrideFlags & OF::Italic) == OF::Italic)
@@ -241,6 +250,29 @@ HFONT WINAPI MyCreateFontIndirectExW(const ENUMLOGFONTEXDVW* lpelf)
 		OverrideLogFont(*newFontInfo, lf);
 
 		lpelf = &elf;
+
+		if (logFile)
+		{
+			std::string name;
+			if (Utf16ToUtf8(lplf->lfFaceName, name))
+			{
+				FormatToFile(logFile.get(),
+					"[CreateFont - Replaced] name = \"{}\", Exist = {}, height = {}, "
+					"width = {}, escapement = {}, "
+					"orientation = {}, weight = {}, "
+					"italic = {}, underline = {}, "
+					"strikeout = {}, charset = {}, "
+					"outprecision = {}, clipprecision = {}, "
+					"quality = {}, pitchandfamily = {}\n",
+					name, IsFontExist(lplf->lfFaceName), lplf->lfHeight,
+					lplf->lfWidth, lplf->lfEscapement,
+					lplf->lfOrientation, lplf->lfWeight,
+					!!lplf->lfItalic, !!lplf->lfUnderline,
+					!!lplf->lfStrikeOut, lplf->lfCharSet,
+					lplf->lfOutPrecision, lplf->lfClipPrecision,
+					lplf->lfQuality, lplf->lfPitchAndFamily);
+			}
+		}
 	}
 
 	return addrCreateFontIndirectExW(lpelf);
@@ -285,6 +317,17 @@ HFONT WINAPI MyCreateFontW(
 	if (pszFaceName) {
 		wcsncpy_s(elf.elfEnumLogfontEx.elfLogFont.lfFaceName, pszFaceName, LF_FACESIZE - 1);
 	}
+	return MyCreateFontIndirectExW(&elf);
+}
+
+HFONT WINAPI MyCreateFontIndirectW(LOGFONTW* lplf) {
+	ENUMLOGFONTEXDVW elf{};
+
+	elf.elfEnumLogfontEx.elfLogFont = *lplf;
+	elf.elfEnumLogfontEx.elfFullName[0] = 0;
+	elf.elfEnumLogfontEx.elfStyle[0] = 0;
+	elf.elfEnumLogfontEx.elfScript[0] = 0;
+
 	return MyCreateFontIndirectExW(&elf);
 }
 #endif
@@ -413,6 +456,16 @@ FontInfo GetFontInfo(const ryml::NodeRef& map)
 		{
 			i >> info.widthOffset;
 			info.overrideFlags |= OF::WidthOffset;
+		}
+		else if (i.key() == "sizeScale")
+		{
+			i >> info.heightScale;
+			info.overrideFlags |= OF::HeightScale;
+		}
+		else if (i.key() == "widthScale")
+		{
+			i >> info.widthScale;
+			info.overrideFlags |= OF::WidthScale;
 		}
 		else if (i.key() == "weight")
 		{
@@ -784,6 +837,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, [[maybe_unused]
 		DetourAttach(&(PVOID&)addrCreateFontIndirectExW, MyCreateFontIndirectExW);
 #ifdef WIN32
 		DetourAttach(&(PVOID&)addrCreateFontW, MyCreateFontW);
+		DetourAttach(&(PVOID&)addrCreateFontIndirectW, MyCreateFontIndirectW);
 #endif
 
 		if (!gdipFontFamiliesMap.empty() || !gdipFontsMap.empty() || !gdipGFFSansSerif.empty() || !gdipGFFSerif.empty() || !gdipGFFMonospace.empty())
