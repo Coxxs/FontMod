@@ -4,6 +4,8 @@ namespace fs = std::filesystem;
 #include "DllStub.hpp"
 #include "DefConfigFile.hpp"
 #include "RymlCallbacks.hpp"
+#include <set>
+#include <map>
 
 #define CONFIG_FILE_STR L"FontMod.yaml"
 constexpr std::wstring_view CONFIG_FILE = CONFIG_FILE_STR;
@@ -187,6 +189,81 @@ bool IsFontExist(const std::wstring& fontName) {
 
 	ReleaseDC(NULL, hdc);
 	return fontExists;
+}
+
+struct FontNameInfo {
+	std::wstring faceName;      // lfFaceName (local name)
+	std::wstring fullName;      // elfFullName (often English name)
+	std::wstring styleName;     // elfStyle
+	bool operator<(const FontNameInfo& other) const {
+		if (faceName != other.faceName) return faceName < other.faceName;
+		if (fullName != other.fullName) return fullName < other.fullName;
+		return styleName < other.styleName;
+	}
+};
+
+void LogAllAvailableFonts() {
+	if (!logFile) return;
+
+	FormatToFile(logFile.get(), "[FontEnumeration] Starting enumeration of all available fonts with alternative names...\n");
+
+	LOGFONT logfont = { 0 };
+	logfont.lfCharSet = DEFAULT_CHARSET;
+
+	HDC hdc = GetDC(NULL);
+	std::set<FontNameInfo> fontInfoSet; // Collect detailed font info
+
+	EnumFontFamiliesEx(hdc, &logfont, [](const LOGFONT* lpelfe, const TEXTMETRIC* /* lpntme */, DWORD /* FontType */, LPARAM lParam) -> int {
+		auto* fontInfoSet = reinterpret_cast<std::set<FontNameInfo>*>(lParam);
+		const ENUMLOGFONTEX* lpelf = reinterpret_cast<const ENUMLOGFONTEX*>(lpelfe);
+		
+		FontNameInfo info;
+		info.faceName = lpelf->elfLogFont.lfFaceName;
+		info.fullName = lpelf->elfFullName;
+		info.styleName = lpelf->elfStyle;
+		
+		fontInfoSet->insert(info);
+		
+		return 1; // Continue enumeration
+		}, reinterpret_cast<LPARAM>(&fontInfoSet), 0);
+
+	ReleaseDC(NULL, hdc);
+
+	// Group fonts by face name and collect unique names
+	std::map<std::wstring, std::set<std::wstring>> fontNamesMap;
+	
+	for (const auto& fontInfo : fontInfoSet) {
+		auto& nameSet = fontNamesMap[fontInfo.faceName];
+		nameSet.insert(fontInfo.faceName);
+		
+		// Add full name if it's different and not empty
+		if (!fontInfo.fullName.empty() && fontInfo.fullName != fontInfo.faceName) {
+			nameSet.insert(fontInfo.fullName);
+		}
+	}
+
+	// Log all font names with alternatives
+	int fontCount = 0;
+	for (const auto& [faceName, nameSet] : fontNamesMap) {
+		std::string faceNameUtf8;
+		if (Utf16ToUtf8(faceName, faceNameUtf8)) {
+			FormatToFile(logFile.get(), "[FontEnumeration] #{}: \"{}\"\n", ++fontCount, faceNameUtf8);
+			
+			// Show alternative names if any exist
+			if (nameSet.size() > 1) {
+				for (const auto& altName : nameSet) {
+					if (altName != faceName) {
+						std::string altNameUtf8;
+						if (Utf16ToUtf8(altName, altNameUtf8)) {
+							FormatToFile(logFile.get(), "    └─ Alternative: \"{}\"\n", altNameUtf8);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	FormatToFile(logFile.get(), "[FontEnumeration] Enumeration complete. Total unique font families found: {}\n", fontCount);
 }
 
 HFONT WINAPI MyCreateFontIndirectExW(const ENUMLOGFONTEXDVW* lpelf)
@@ -784,6 +861,12 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, [[maybe_unused]
 		}
 
 		LoadUserFonts(path);
+
+		if (debug)
+		{
+			// Log all available fonts when program starts
+			LogAllAvailableFonts();
+		}
 
 		switch (fixGSOFont)
 		{
