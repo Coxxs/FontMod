@@ -143,8 +143,6 @@ void OverrideLogFont(const FontInfo& info, LOGFONTW& lf)
 		lf.lfHeight = info.height;
 	if ((info.overrideFlags & OF::Width) == OF::Width)
 		lf.lfWidth = info.width;
-	if ((info.overrideFlags & OF::Width) == OF::Width)
-		lf.lfWidth = info.width;
 	if (lf.lfHeight != 0 && (info.overrideFlags & OF::HeightOffset) == OF::HeightOffset)
 		lf.lfHeight = lf.lfHeight > 0 ? std::max(1L, lf.lfHeight + info.heightOffset) : std::min(-1L, lf.lfHeight - info.heightOffset);
 	if (lf.lfWidth != 0 && (info.overrideFlags & OF::WidthOffset) == OF::WidthOffset)
@@ -176,7 +174,7 @@ void OverrideLogFont(const FontInfo& info, LOGFONTW& lf)
 bool IsFontExist(const std::wstring& fontName) {
 	LOGFONT logfont = { 0 };
 	logfont.lfCharSet = DEFAULT_CHARSET;
-	wcscpy_s(logfont.lfFaceName, fontName.c_str());
+	wcscpy_s(logfont.lfFaceName, LF_FACESIZE, fontName.c_str());
 
 	HDC hdc = GetDC(NULL);
 	bool fontExists = false;
@@ -392,7 +390,7 @@ HFONT WINAPI MyCreateFontW(
 	elf.elfDesignVector.dvReserved = 0x8007664LL;
 
 	if (pszFaceName) {
-		wcsncpy_s(elf.elfEnumLogfontEx.elfLogFont.lfFaceName, pszFaceName, LF_FACESIZE - 1);
+		wcsncpy_s(elf.elfEnumLogfontEx.elfLogFont.lfFaceName, LF_FACESIZE, pszFaceName, _TRUNCATE);
 	}
 	return MyCreateFontIndirectExW(&elf);
 }
@@ -411,7 +409,9 @@ HFONT WINAPI MyCreateFontIndirectW(LOGFONTW* lplf) {
 
 HGDIOBJ WINAPI MyGetStockObject(int i)
 {
-	FormatToFile(logFile.get(), "[GetStockObject] Type = {}\n", i);
+	if (logFile) {
+		FormatToFile(logFile.get(), "[GetStockObject] Type = {}\n", i);
+	}
 
 	switch (i)
 	{
@@ -625,7 +625,7 @@ void AddGdiplusFontInfo(const ryml::NodeRef& map)
 			}
 			else if (i.val() == "bold")
 			{
-				info.style = Style::Regular;
+				info.style = Style::Bold;
 			}
 			else if (i.val() == "italic")
 			{
