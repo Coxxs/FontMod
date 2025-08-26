@@ -136,7 +136,7 @@ void OverrideLogFont(const FontInfo& info, LOGFONTW& lf)
 	using OF = FontInfo::OverrideFlags;
 
 	if (!info.name.empty())
-		info.name.copy(lf.lfFaceName, LF_FACESIZE);
+		wcsncpy_s(lf.lfFaceName, LF_FACESIZE);
 	if ((info.overrideFlags & OF::Height) == OF::Height)
 		lf.lfHeight = info.height;
 	if ((info.overrideFlags & OF::Width) == OF::Width)
