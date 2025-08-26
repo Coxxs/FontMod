@@ -254,7 +254,7 @@ HFONT WINAPI MyCreateFontIndirectExW(const ENUMLOGFONTEXDVW* lpelf)
 		if (logFile)
 		{
 			std::string name;
-			if (Utf16ToUtf8(lplf->lfFaceName, name))
+			if (Utf16ToUtf8(lf.lfFaceName, name))
 			{
 				FormatToFile(logFile.get(),
 					"[CreateFont - Replaced] name = \"{}\", Exist = {}, height = {}, "
@@ -264,13 +264,13 @@ HFONT WINAPI MyCreateFontIndirectExW(const ENUMLOGFONTEXDVW* lpelf)
 					"strikeout = {}, charset = {}, "
 					"outprecision = {}, clipprecision = {}, "
 					"quality = {}, pitchandfamily = {}\n",
-					name, IsFontExist(lplf->lfFaceName), lplf->lfHeight,
-					lplf->lfWidth, lplf->lfEscapement,
-					lplf->lfOrientation, lplf->lfWeight,
-					!!lplf->lfItalic, !!lplf->lfUnderline,
-					!!lplf->lfStrikeOut, lplf->lfCharSet,
-					lplf->lfOutPrecision, lplf->lfClipPrecision,
-					lplf->lfQuality, lplf->lfPitchAndFamily);
+					name, IsFontExist(lf.lfFaceName), lf.lfHeight,
+					lf.lfWidth, lf.lfEscapement,
+					lf.lfOrientation, lf.lfWeight,
+					!!lf.lfItalic, !!lf.lfUnderline,
+					!!lf.lfStrikeOut, lf.lfCharSet,
+					lf.lfOutPrecision, lf.lfClipPrecision,
+					lf.lfQuality, lf.lfPitchAndFamily);
 			}
 		}
 	}
