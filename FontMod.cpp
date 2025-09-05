@@ -935,10 +935,6 @@ bool LoadSettings(const fs::path& fileName, GSOFontMode& fixGSOFont, LOGFONT& us
 			if (!Utf8ToUtf16(i.val(), gdipGFFMonospace))
 				gdipGFFMonospace.clear();
 		}
-		else if (i.has_val() && i.key() == "debug")
-		{
-			i >> debug;
-		}
 		else if (i.has_val() && i.key() == "removeInternalLeading")
 		{
 			i >> removeInternalLeadingConfig;
@@ -946,14 +942,8 @@ bool LoadSettings(const fs::path& fileName, GSOFontMode& fixGSOFont, LOGFONT& us
 		else if (i.is_map() && i.key() == "glyphReplace")
 		{
 			glyphReplaceMapConfig.clear();
-			glyphReplaceEnabledConfig = true; // Enable whenever the section exists
+			glyphReplaceEnabledConfig = true;
 
-			// log
-			if (logFile)
-			{
-				FormatToFile(logFile.get(), "[LoadSettings] glyphReplace enabled\n");
-			}
-			
 			for (const auto& j : i)
 			{
 				if (j.has_val())
@@ -965,14 +955,13 @@ bool LoadSettings(const fs::path& fileName, GSOFontMode& fixGSOFont, LOGFONT& us
 					
 					j >> targetChar;
 
-					if (logFile)
-					{
-						FormatToFile(logFile.get(), "[LoadSettings] glyphReplace: {} -> {}\n", sourceChar, targetChar);
-					}
-
 					glyphReplaceMapConfig[sourceChar] = targetChar;
 				}
 			}
+		}
+		else if (i.has_val() && i.key() == "debug")
+		{
+			i >> debug;
 		}
 	}
 
