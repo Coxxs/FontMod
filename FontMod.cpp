@@ -17,6 +17,12 @@ auto addrCreateFontIndirectW = CreateFontIndirectW;
 auto addrCreateFontW = CreateFontW;
 #endif
 auto addrGetStockObject = GetStockObject;
+auto addrGetTextMetricsW = GetTextMetricsW;
+auto addrGetTextMetricsA = GetTextMetricsA;
+auto addrGetGlyphOutlineW = GetGlyphOutlineW;
+auto addrGetGlyphOutlineA = GetGlyphOutlineA;
+
+bool removeInternalLeading = false;
 
 namespace GPFlat = Gdiplus::DllExports;
 using GPFlat::GdipCreateFontFamilyFromName;
@@ -128,6 +134,10 @@ HFONT newGSOFont = nullptr;
 
 std::unordered_map<std::wstring, std::wstring> gdipFontFamiliesMap;
 std::unordered_map<std::wstring, GPFontInfo> gdipFontsMap;
+
+// Character replacement mapping (source char -> target char)
+std::unordered_map<UINT, UINT> glyphReplaceMap;
+bool glyphReplaceEnabled = false;
 
 std::wstring gdipGFFSansSerif;
 std::wstring gdipGFFSerif;
@@ -427,6 +437,153 @@ HGDIOBJ WINAPI MyGetStockObject(int i)
 	return addrGetStockObject(i);
 }
 
+void SetFixedValue(FIXED& fixed, double value) {
+    fixed.value = (short)value;                    // Integer part
+    fixed.fract = (unsigned short)((value - fixed.value) * 65536.0);  // Fractional part
+}
+
+BOOL WINAPI MyGetTextMetricsW(HDC hdc, LPTEXTMETRICW lptm)
+{
+	BOOL result = addrGetTextMetricsW(hdc, lptm);
+	
+	if (result && lptm && removeInternalLeading && lptm->tmInternalLeading > 0)
+	{
+		LONG originalInternalLeading = lptm->tmInternalLeading;
+		lptm->tmInternalLeading = 0;
+
+		LONG originalAscent = lptm->tmAscent;
+		lptm->tmAscent -= originalInternalLeading;
+
+		LONG originalHeight = lptm->tmHeight;
+		lptm->tmHeight -= originalInternalLeading;
+		
+		if (logFile)
+		{
+			FormatToFile(logFile.get(), "[GetTextMetricsW] tmInternalLeading: {} -> 0, tmHeight = {} -> {}, tmAscent = {} -> {}, tmDescent = {}\n", 
+				originalInternalLeading, originalHeight, lptm->tmHeight, originalAscent, lptm->tmAscent, lptm->tmDescent);
+		}
+	}
+	
+	return result;
+}
+
+BOOL WINAPI MyGetTextMetricsA(HDC hdc, LPTEXTMETRICA lptm)
+{
+	BOOL result = addrGetTextMetricsA(hdc, lptm);
+	
+	if (result && lptm && removeInternalLeading && lptm->tmInternalLeading > 0)
+	{
+		LONG originalInternalLeading = lptm->tmInternalLeading;
+		lptm->tmInternalLeading = 0;
+
+		LONG originalAscent = lptm->tmAscent;
+		lptm->tmAscent -= originalInternalLeading;
+
+		LONG originalHeight = lptm->tmHeight;
+		lptm->tmHeight -= originalInternalLeading;
+		
+		if (logFile)
+		{
+			FormatToFile(logFile.get(), "[GetTextMetricsA] tmInternalLeading: {} -> 0, tmHeight = {} -> {}, tmAscent = {} -> {}, tmDescent = {}\n", 
+				originalInternalLeading, originalHeight, lptm->tmHeight, originalAscent, lptm->tmAscent, lptm->tmDescent);
+		}
+	}
+	
+	return result;
+}
+
+DWORD WINAPI MyGetGlyphOutlineW(HDC hdc, UINT uChar, UINT uFormat, LPGLYPHMETRICS lpgm, DWORD cbBuffer, LPVOID lpvBuffer, const MAT2* lpmat2)
+{
+	UINT originalChar = uChar;
+	
+	if (glyphReplaceEnabled)
+	{
+		if (glyphReplaceMap.find(uChar) != glyphReplaceMap.end())
+		{
+			uChar = glyphReplaceMap[uChar];
+			
+			if (logFile)
+			{
+				FormatToFile(logFile.get(), "[GetGlyphOutlineW] Character: {} -> {}\n", originalChar, uChar);
+			}
+		}
+		else
+		{
+			if (logFile)
+			{
+				FormatToFile(logFile.get(), "[GetGlyphOutlineW] Character: {} (no replacement)\n", originalChar);
+			}
+		}
+	}
+
+	DWORD result = addrGetGlyphOutlineW(hdc, uChar, uFormat, lpgm, cbBuffer, lpvBuffer, lpmat2);
+
+	if (result != GDI_ERROR && lpgm && removeInternalLeading)
+	{
+		TEXTMETRICW tm;
+		if (addrGetTextMetricsW(hdc, &tm) && tm.tmInternalLeading > 0)
+		{
+			LONG originalOriginY = lpgm->gmptGlyphOrigin.y;
+			lpgm->gmptGlyphOrigin.y -= tm.tmInternalLeading / 2;
+
+			if (logFile)
+			{
+				FormatToFile(logFile.get(), "[GetGlyphOutlineW] INTERNAL_LEADING_ADJUSTMENT:\n");
+				FormatToFile(logFile.get(), "  tmInternalLeading: {}\n", tm.tmInternalLeading);
+				FormatToFile(logFile.get(), "  gmptGlyphOrigin.y: {} -> {}\n", originalOriginY, lpgm->gmptGlyphOrigin.y);
+			}
+		}
+	}
+	
+	return result;
+}
+
+DWORD WINAPI MyGetGlyphOutlineA(HDC hdc, UINT uChar, UINT uFormat, LPGLYPHMETRICS lpgm, DWORD cbBuffer, LPVOID lpvBuffer, const MAT2* lpmat2)
+{
+	UINT originalChar = uChar;
+	
+	if (glyphReplaceEnabled)
+	{	
+		if (glyphReplaceMap.find(uChar) != glyphReplaceMap.end())
+		{
+			uChar = glyphReplaceMap[uChar];
+			
+			if (logFile)
+			{
+				FormatToFile(logFile.get(), "[GetGlyphOutlineA] Character: {} -> {}\n", originalChar, uChar);
+			}
+		}
+		else
+		{
+			if (logFile)
+			{
+				FormatToFile(logFile.get(), "[GetGlyphOutlineA] Character: {} (no replacement)\n", originalChar);
+			}
+		}
+	}
+
+	DWORD result = addrGetGlyphOutlineA(hdc, uChar, uFormat, lpgm, cbBuffer, lpvBuffer, lpmat2);
+
+	if (result != GDI_ERROR && lpgm && removeInternalLeading)
+	{
+		TEXTMETRICA tm;
+		if (addrGetTextMetricsA(hdc, &tm) && tm.tmInternalLeading > 0)
+		{
+			LONG originalOriginY = lpgm->gmptGlyphOrigin.y;
+			lpgm->gmptGlyphOrigin.y -= tm.tmInternalLeading;
+
+			if (logFile)
+			{
+				FormatToFile(logFile.get(), "[GetGlyphOutlineA] INTERNAL_LEADING_ADJUSTMENT:\n");
+				FormatToFile(logFile.get(), "  tmInternalLeading: {}\n", tm.tmInternalLeading);
+				FormatToFile(logFile.get(), "  gmptGlyphOrigin.y: {} -> {}\n", originalOriginY, lpgm->gmptGlyphOrigin.y);
+			}
+		}
+	}
+	
+	return result;
+}
+
 using Gdiplus::GpStatus;
 using Gdiplus::GpFontCollection;
 using Gdiplus::GpFontFamily;
@@ -710,7 +867,7 @@ void AddGdiplusFontInfo(const ryml::NodeRef& map)
 	}
 }
 
-bool LoadSettings(const fs::path& fileName, GSOFontMode& fixGSOFont, LOGFONT& userGSOFont, bool& debug, std::wstring& errMsg)
+bool LoadSettings(const fs::path& fileName, GSOFontMode& fixGSOFont, LOGFONT& userGSOFont, bool& debug, bool& removeInternalLeadingConfig, std::wstring& errMsg, bool& glyphReplaceEnabledConfig, std::unordered_map<UINT, UINT>& glyphReplaceMapConfig)
 {
 	auto config = LoadUtf8FileWithoutBOM(fileName.c_str());
 	const auto tree = [&] {
@@ -782,6 +939,41 @@ bool LoadSettings(const fs::path& fileName, GSOFontMode& fixGSOFont, LOGFONT& us
 		{
 			i >> debug;
 		}
+		else if (i.has_val() && i.key() == "removeInternalLeading")
+		{
+			i >> removeInternalLeadingConfig;
+		}
+		else if (i.is_map() && i.key() == "glyphReplace")
+		{
+			glyphReplaceMapConfig.clear();
+			glyphReplaceEnabledConfig = true; // Enable whenever the section exists
+
+			// log
+			if (logFile)
+			{
+				FormatToFile(logFile.get(), "[LoadSettings] glyphReplace enabled\n");
+			}
+			
+			for (const auto& j : i)
+			{
+				if (j.has_val())
+				{
+					uint32_t sourceChar, targetChar;
+					
+					std::string keyStr(j.key().data(), j.key().size());
+					sourceChar = std::stoul(keyStr);
+					
+					j >> targetChar;
+
+					if (logFile)
+					{
+						FormatToFile(logFile.get(), "[LoadSettings] glyphReplace: {} -> {}\n", sourceChar, targetChar);
+					}
+
+					glyphReplaceMapConfig[sourceChar] = targetChar;
+				}
+			}
+		}
 	}
 
 	return true;
@@ -846,8 +1038,12 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, [[maybe_unused]
 		LOGFONT userGSOFont = {};
 
 		bool debug = false;
+
+		glyphReplaceEnabled = false;
+		glyphReplaceMap.clear();
+
 		std::wstring errMsg(L"LoadSettings error.\n");
-		if (!LoadSettings(configPath, fixGSOFont, userGSOFont, debug, errMsg))
+		if (!LoadSettings(configPath, fixGSOFont, userGSOFont, debug, removeInternalLeading, errMsg, glyphReplaceEnabled, glyphReplaceMap))
 		{
 			auto restore = SetThreadDpiAwareAutoRestore();
 			MessageBoxW(0, errMsg.c_str(), L"Error", MB_ICONERROR);
@@ -908,6 +1104,22 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, [[maybe_unused]
 			auto addrCreateFontIndirectExWFull = GetProcAddressByFunctionDeclaration(hGdiFull, CreateFontIndirectExW);
 			if (addrCreateFontIndirectExWFull)
 				addrCreateFontIndirectExW = addrCreateFontIndirectExWFull;
+
+			auto addrGetTextMetricsWFull = GetProcAddressByFunctionDeclaration(hGdiFull, GetTextMetricsW);
+			if (addrGetTextMetricsWFull)
+				addrGetTextMetricsW = addrGetTextMetricsWFull;
+
+			auto addrGetTextMetricsAFull = GetProcAddressByFunctionDeclaration(hGdiFull, GetTextMetricsA);
+			if (addrGetTextMetricsAFull)
+				addrGetTextMetricsA = addrGetTextMetricsAFull;
+
+			auto addrGetGlyphOutlineWFull = GetProcAddressByFunctionDeclaration(hGdiFull, GetGlyphOutlineW);
+			if (addrGetGlyphOutlineWFull)
+				addrGetGlyphOutlineW = addrGetGlyphOutlineWFull;
+
+			auto addrGetGlyphOutlineAFull = GetProcAddressByFunctionDeclaration(hGdiFull, GetGlyphOutlineA);
+			if (addrGetGlyphOutlineAFull)
+				addrGetGlyphOutlineA = addrGetGlyphOutlineAFull;
 		}
 
 		DetourTransactionBegin();
@@ -922,6 +1134,10 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, [[maybe_unused]
 		DetourAttach(&(PVOID&)addrCreateFontW, MyCreateFontW);
 		DetourAttach(&(PVOID&)addrCreateFontIndirectW, MyCreateFontIndirectW);
 #endif
+		DetourAttach(&(PVOID&)addrGetTextMetricsW, MyGetTextMetricsW);
+		DetourAttach(&(PVOID&)addrGetTextMetricsA, MyGetTextMetricsA);
+		DetourAttach(&(PVOID&)addrGetGlyphOutlineW, MyGetGlyphOutlineW);
+		DetourAttach(&(PVOID&)addrGetGlyphOutlineA, MyGetGlyphOutlineA);
 
 		if (!gdipFontFamiliesMap.empty() || !gdipFontsMap.empty() || !gdipGFFSansSerif.empty() || !gdipGFFSerif.empty() || !gdipGFFMonospace.empty())
 		{
